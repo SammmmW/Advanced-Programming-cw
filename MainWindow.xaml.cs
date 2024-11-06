@@ -19,14 +19,7 @@ namespace WpfApp1
         }
         private void Help_Click(object sender, RoutedEventArgs e)
         {
-            if (helpActive == false)
-            {
-                helpActive = true;
-            }
-            else
-            {
-                helpActive = false;
-            }
+            helpActive = !helpActive;
             if (helpActive)
             {
                 Info.Text = "Accepted tokens are as follows:\nAll digits (1-9), +, -, * (multiply), /(divide), % (remainder), ^(to the power of), (), . (for decimal places), E (exponent), Sin, Cos, Tan, Pi, Log";
