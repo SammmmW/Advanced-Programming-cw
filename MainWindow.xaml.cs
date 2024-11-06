@@ -7,6 +7,7 @@ namespace WpfApp1
     /// </summary>
     public partial class MainWindow : Window
     {
+        bool helpActive = false;
         public MainWindow()
         {
             InitializeComponent();
@@ -18,8 +19,22 @@ namespace WpfApp1
         }
         private void Help_Click(object sender, RoutedEventArgs e)
         {
-            //Error.Text = "I am an error";
-            Info.Text = "Accepted tokens are as follows:\nAll digits (1-9), +, -, * (multiply), /(divide), % (remainder), ^(to the power of), (), . (for decimal places), E (exponent), Sin, Cos, Tan, Pi, Log";
+            if (helpActive == false)
+            {
+                helpActive = true;
+            }
+            else
+            {
+                helpActive = false;
+            }
+            if (helpActive)
+            {
+                Info.Text = "Accepted tokens are as follows:\nAll digits (1-9), +, -, * (multiply), /(divide), % (remainder), ^(to the power of), (), . (for decimal places), E (exponent), Sin, Cos, Tan, Pi, Log";
+            }
+            else
+            {
+                Info.Text = "";
+            }
         }
     }
 }
