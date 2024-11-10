@@ -481,7 +481,7 @@
 open System
 open System.Collections.Generic
 
-type VariableType =
+type VariableType = // dnjkcndksnvjknsdk
     | IntType
     | FloatType
 
