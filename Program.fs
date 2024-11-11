@@ -48,7 +48,8 @@ let lexer input =
         | c :: tail when isblank c -> scan tail
         | c :: tail when isdigit c -> 
             let (iStr, iVal) = scFloat(tail, float (intVal c))
-            if iStr <> [] && iStr.Head = '/' then
+            if iStr <> [] && iStr.Head = '/' then 
+            //These tasks are not essential and don't work currently, do not prioritise this!
                 scRational(iStr, iVal)
             elif iStr <> [] && iStr.Head = '+' then
                 scComplex(iStr, iVal)
@@ -62,9 +63,7 @@ let lexer input =
             match tail with
             | c :: t when isdigit c ->
                 let (rest, den) = scFloat(t, float(intVal c))
-                match den with
-                | 0.0 -> raise divideByZero
-                | _ -> RationalNum(int num, int den) :: scan rest
+                RationalNum(int num, int den) :: scan rest
             | _ -> raise lexError
         | _ -> scan input
 
@@ -86,7 +85,7 @@ let getInputString() : string =
     Console.Write("Enter an expression: ")
     Console.ReadLine()
 
-// Grammar in BNF:
+    // Grammar in BNF:
 // <E>        ::= <T> <Eopt>
 // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
 // <T>        ::= <P> <Topt>
@@ -95,42 +94,7 @@ let getInputString() : string =
 // <Popt>     ::= "^" <Number> <Popt> | <empty>
 // <Number>   ::= <Numb> | <Float>
 // <Numb>     ::= "Num" <value> | "(" <E> ")" | "-" <Numb> 
-// <Float>    ::= "Num" <value> "." "Num" <value> | "-" <Float> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb>
-
-let parser tList = 
-    let rec E tList = (T >> Eopt) tList         // >> is forward function composition operator: let inline (>>) f g x = g(f x)
-    and Eopt tList = 
-        match tList with
-        | Add :: tail -> (T >> Eopt) tail
-        | Sub :: tail -> (T >> Eopt) tail
-        | _ -> tList
-    and T tList = (P >> Topt) tList
-    and Topt tList =
-        match tList with
-        | Mul :: tail -> (P >> Topt) tail
-        | Div :: tail -> (P >> Topt) tail
-        | Rem :: tail -> (P >> Topt) tail
-        | _ -> tList
-    and P tList = (Numb >> Popt) tList
-    and Popt tList =
-        match tList with
-        | Pow :: tail -> (Numb >> Popt) tail
-        | _ -> tList
-    and Numb tList =
-        match tList with 
-        | Num value :: tail -> tail
-        | Lpar :: tail -> match E tail with 
-                          | Rpar :: tail -> tail
-                          | _ -> raise parseError
-        | Sub :: tail -> (Numb) tail
-        | Sin :: tail -> (Numb) tail
-        | Cos :: tail -> (Numb) tail
-        | Tan :: tail -> (Numb) tail
-        | Log :: tail -> (Numb) tail
-        | Exp :: tail -> (Numb) tail
-        | Sqrt :: tail -> (Numb) tail
-        | _ -> raise parseError
-    E tList
+// <Float>    ::= "Num" <value> "." "Num" <value> | "-" <Float> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb>
 
 let rec parseNeval tList =
     let rec E tList = (T >> Eopt) tList
@@ -175,10 +139,10 @@ let rec parseNeval tList =
                          (tLst, -tval)
         | Sin :: tail -> let (tLst, tval) = Numb tail
                          (tLst, Math.Sin(tval))
-        | Cos :: tail -> let (tLst, tval) = Numb tail
-                         (tLst, Math.Cos(tval))
         | Tan :: tail -> let (tLst, tval) = Numb tail
                          (tLst, Math.Tan(tval))
+        | Cos :: tail -> let (tLst, tval) = Numb tail
+                         (tLst, Math.Cos(tval))
         | Log :: tail -> let (tLst, tval) = Numb tail
                          (tLst, Math.Log(tval))
         | Exp :: tail -> let (tLst, tval) = Numb tail
@@ -206,7 +170,6 @@ let main argv  =
     let input = getInputString()
     let oList = lexer input
     let sList = printTList oList;
-    let pList = printTList (parser oList)
     let Out = parseNeval oList
     Console.WriteLine("Result = {0}", snd Out)
     0
