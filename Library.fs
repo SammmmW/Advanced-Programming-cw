@@ -2,10 +2,10 @@ namespace ClassLibrary1
 
 module lexparser =
     open System
-    open System.Numerics // For complex numbers
+    open System.Numerics
 
     type terminal = 
-        Add | Sub | Mul | Div | Rem | Lpar | Rpar | Pow | Dot | Num of float | ComplexNum of Complex | RationalNum of (int * int) 
+        Add | Sub | Mul | Div | Rem | Lpar | Rpar | Pow | Dot | Int of int | Float of float
         | Sin | Cos | Log | Exp | Tan | Sqrt | Pi
 
     let str2lst s = [for c in s -> c]
@@ -24,9 +24,9 @@ module lexparser =
                 | c :: t when isdigit c -> parseDecimal t (multiplier / 10.0) (value + (float (intVal c)) * multiplier)
                 | _ -> (tail, value)
             let (restStr, decimalVal) = parseDecimal tail 0.1 (float iVal)
-            (restStr, decimalVal)
-        | c :: tail when isdigit c -> scFloat(tail, 10.0 * iVal + float (intVal c))
-        | _ -> (iStr, iVal)
+            (restStr, Float(decimalVal))
+        | c :: tail when isdigit c -> scFloat(tail, 10 * iVal + intVal c)
+        | _ -> (iStr, Int iVal)
 
     let lexer input = 
         let rec scan input =
@@ -50,38 +50,11 @@ module lexparser =
             | 's'::'q'::'r'::'t'::tail -> Sqrt :: scan tail 
             | c :: tail when isblank c -> scan tail
             | c :: tail when isdigit c -> 
-                let (iStr, iVal) = scFloat(tail, float (intVal c))
-                if iStr <> [] && iStr.Head = '/' then
-                    scRational(iStr, iVal)
-                elif iStr <> [] && iStr.Head = '+' then
-                    scComplex(iStr, iVal)
-                else
-                    Num iVal :: scan iStr                         
+                let (iStr, iVal) = scFloat(tail, intVal c)
+                match iVal with
+                | Float v when v % 1.0 = 0.0 -> Int (int v) :: scan iStr
+                | _ -> iVal :: scan iStr                    
             | _ -> raise lexError
-
-        and scRational(input, num) = 
-            match input with
-            | '/' :: tail -> 
-                match tail with
-                | c :: t when isdigit c ->
-                    let (rest, den) = scFloat(t, float(intVal c))
-                    match den with
-                    | 0.0 -> raise divideByZero
-                    | _ -> RationalNum(int num, int den) :: scan rest
-                | _ -> raise lexError
-            | _ -> scan input
-
-        and scComplex(input, realPart) =
-            match input with
-            | '+' :: tail ->
-                match tail with
-                | c :: t when isdigit c ->
-                    let (iStr, imagPart) = scFloat(t, float (intVal c))
-                    match iStr with
-                    | 'i' :: rest  -> ComplexNum(Complex(realPart, imagPart)) :: scan rest
-                    | _ -> raise lexError
-                | _ -> raise lexError
-            | _ -> scan input
 
         scan (str2lst input)
 
@@ -89,7 +62,7 @@ module lexparser =
         Console.Write("Enter an expression: ")
         Console.ReadLine()
 
-    // Grammar in BNF:
+        // Grammar in BNF:
     // <E>        ::= <T> <Eopt>
     // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
     // <T>        ::= <P> <Topt>
@@ -98,42 +71,7 @@ module lexparser =
     // <Popt>     ::= "^" <Number> <Popt> | <empty>
     // <Number>   ::= <Numb> | <Float>
     // <Numb>     ::= "Num" <value> | "(" <E> ")" | "-" <Numb> 
-    // <Float>    ::= "Num" <value> "." "Num" <value> | "-" <Float> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb>
-
-    let parser tList = 
-        let rec E tList = (T >> Eopt) tList         // >> is forward function composition operator: let inline (>>) f g x = g(f x)
-        and Eopt tList = 
-            match tList with
-            | Add :: tail -> (T >> Eopt) tail
-            | Sub :: tail -> (T >> Eopt) tail
-            | _ -> tList
-        and T tList = (P >> Topt) tList
-        and Topt tList =
-            match tList with
-            | Mul :: tail -> (P >> Topt) tail
-            | Div :: tail -> (P >> Topt) tail
-            | Rem :: tail -> (P >> Topt) tail
-            | _ -> tList
-        and P tList = (Numb >> Popt) tList
-        and Popt tList =
-            match tList with
-            | Pow :: tail -> (Numb >> Popt) tail
-            | _ -> tList
-        and Numb tList =
-            match tList with 
-            | Num value :: tail -> tail
-            | Lpar :: tail -> match E tail with 
-                              | Rpar :: tail -> tail
-                              | _ -> raise parseError
-            | Sub :: tail -> (Numb) tail
-            | Sin :: tail -> (Numb) tail
-            | Cos :: tail -> (Numb) tail
-            | Tan :: tail -> (Numb) tail
-            | Log :: tail -> (Numb) tail
-            | Exp :: tail -> (Numb) tail
-            | Sqrt :: tail -> (Numb) tail
-            | _ -> raise parseError
-        E tList
+    // <Float>    ::= "Num" <value> "." "Num" <value> | "-" <Float> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb>
 
     let rec parseNeval tList =
         let rec E tList = (T >> Eopt) tList
@@ -151,8 +89,13 @@ module lexparser =
                              Topt (tLst, value * tval)
             | Div :: tail -> let (tLst, tval) = P tail
                              match tval with
-                             | 0.0 -> raise divideByZero
-                             | _ -> Topt (tLst, value / tval)
+                             | 0.0 -> raise divideByZero 
+                             | _ ->
+                                    let result =
+                                        match (value, tval) with
+                                        | (v1, v2) when v1 % 1.0 = 0.0 && v2 % 1.0 = 0.0 -> int v1 / int v2 |> float
+                                        | _ -> value / tval
+                                    Topt (tLst, result)
             | Rem :: tail -> let (tLst, tval) = P tail
                              match tval with
                              | 0.0 -> raise divideByZero
@@ -166,9 +109,8 @@ module lexparser =
             | _ -> (tList, value)
         and Numb tList =
             match tList with 
-            | Num value :: tail -> (tail, value)
-            | ComplexNum cval :: tail -> (tail, Complex.Abs(cval))
-            | RationalNum (n, d) :: tail -> (tail, float n / float d)
+            | Int value :: tail -> (tail, value)
+            | Float value :: tail -> (tail, float value)
             | Pi :: tail -> (tail, Math.PI)
             | Lpar :: tail -> let (tLst, tval) = E tail
                               match tLst with 
@@ -178,10 +120,10 @@ module lexparser =
                              (tLst, -tval)
             | Sin :: tail -> let (tLst, tval) = Numb tail
                              (tLst, Math.Sin(tval))
-            | Cos :: tail -> let (tLst, tval) = Numb tail
-                             (tLst, Math.Cos(tval))
             | Tan :: tail -> let (tLst, tval) = Numb tail
                              (tLst, Math.Tan(tval))
+            | Cos :: tail -> let (tLst, tval) = Numb tail
+                             (tLst, Math.Cos(tval))
             | Log :: tail -> let (tLst, tval) = Numb tail
                              (tLst, Math.Log(tval))
             | Exp :: tail -> let (tLst, tval) = Numb tail
