@@ -1,4 +1,6 @@
-﻿using System.Windows;
+using ClassLibrary1;
+using Microsoft.FSharp.Collections;
+using System.Windows;
 
 namespace WpfApp1
 {
@@ -12,7 +14,10 @@ namespace WpfApp1
 
         private void Btn_Click(object sender, RoutedEventArgs e)
         {
-            Result.Text = Input.Text; //in the final program, what this needs to actually do is pass 'Input.Text' into the f# program, then display that result
+            var fsString = lexparser.str2lst(Input.Text);
+            var oList = lexparser.lexer(fsString);
+            double b = lexparser.parseNeval(oList).Item2;
+            Result.Text = b.ToString();
         }
         private void Help_Click(object sender, RoutedEventArgs e)
         {
