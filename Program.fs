@@ -1,212 +1,187 @@
-open System
-open System.Numerics // For complex numbers
+namespace ClassLibrary1
 
-type terminal = 
-    Add | Sub | Mul | Div | Rem | Lpar | Rpar | Pow | Dot | Num of float | ComplexNum of Complex | RationalNum of (int * int) 
-    | Sin | Cos | Log | Exp | Tan | Sqrt | Pi
+module lexparser =
+    open System
+    open System.Numerics
+    open System.Collections.Generic
 
-let str2lst s = [for c in s -> c]
-let isblank c = System.Char.IsWhiteSpace c
-let isdigit c = System.Char.IsDigit c
-let lexError = System.Exception("Lexer error")
-let intVal (c:char) = (int)((int)c - (int)'0')
-let parseError = System.Exception("Parser error")
-let divideByZero = System.Exception("Attempted to divide by zero")
+    type VariableType =
+        | IntType
+        | FloatType
 
-let rec scFloat(iStr, iVal) = 
-    match iStr with
-    | '.' :: tail -> 
-        let rec parseDecimal tail multiplier value =
-            match tail with
-            | c :: t when isdigit c -> parseDecimal t (multiplier / 10.0) (value + (float (intVal c)) * multiplier)
-            | _ -> (tail, value)
-        let (restStr, decimalVal) = parseDecimal tail 0.1 (float iVal)
-        (restStr, decimalVal)
-    | c :: tail when isdigit c -> scFloat(tail, 10.0 * iVal + float (intVal c))
-    | _ -> (iStr, iVal)
+    type terminal = 
+        Add | Sub | Mul | Div | Rem | Lpar | Rpar | Pow | Dot | End | Int of int | Float of float
+        | Sin | Cos | Log | Exp | Tan | Sqrt | Pi | Assign | Variable of string | TypeDecl of VariableType
 
-let lexer input = 
-    let rec scan input =
-        match input with
-        | [] -> []
-        | '+'::tail -> Add :: scan tail
-        | '-'::tail -> Sub :: scan tail
-        | '*'::tail -> Mul :: scan tail
-        | '/'::tail -> Div :: scan tail
-        | '%'::tail -> Rem :: scan tail
-        | '('::tail -> Lpar:: scan tail
-        | ')'::tail -> Rpar:: scan tail
-        | '^'::tail -> Pow :: scan tail
-        | '.'::tail -> Dot :: scan tail
-        | 'p'::'i'::tail -> Pi :: scan tail
-        | 's'::'i'::'n'::tail -> Sin :: scan tail
-        | 'c'::'o'::'s'::tail -> Cos :: scan tail 
-        | 'l'::'o'::'g'::tail -> Log :: scan tail 
-        | 'e'::'x'::'p'::tail -> Exp :: scan tail 
-        | 't'::'a'::'n'::tail -> Tan :: scan tail 
-        | 's'::'q'::'r'::'t'::tail -> Sqrt :: scan tail 
-        | c :: tail when isblank c -> scan tail
-        | c :: tail when isdigit c -> 
-            let (iStr, iVal) = scFloat(tail, float (intVal c))
-            if iStr <> [] && iStr.Head = '/' then
-                scRational(iStr, iVal)
-            elif iStr <> [] && iStr.Head = '+' then
-                scComplex(iStr, iVal)
-            else
-                Num iVal :: scan iStr                         
-        | _ -> raise lexError
+    let str2lst s = [for c in s -> c]
+    let isblank c = System.Char.IsWhiteSpace c
+    let isdigit c = System.Char.IsDigit c
+    let isalpha c = System.Char.IsLetter c
+    let lexError = System.Exception("Lexer error")
+    let intVal (c:char) = (int)((int)c - (int)'0')
+    let parseError = System.Exception("Parser error")
+    let divideByZero = System.Exception("Attempted to divide by zero")
+    let undeclaredVariable = System.Exception("Variable used before assignment")
+    let typeMismatch = System.Exception("Type mismatch during assignment or usage")
 
-    and scRational(input, num) = 
-        match input with
-        | '/' :: tail -> 
-            match tail with
-            | c :: t when isdigit c ->
-                let (rest, den) = scFloat(t, float(intVal c))
-                match den with
-                | 0.0 -> raise divideByZero
-                | _ -> RationalNum(int num, int den) :: scan rest
+    let symbolTable = Dictionary<string, float>()
+    let variableTypes = Dictionary<string, VariableType>()
+
+    let rec scFloat(iStr, iVal) = 
+        match iStr with
+        | '.' :: tail -> 
+            let rec parseDecimal tail multiplier value =
+                match tail with
+                | c :: t when isdigit c -> parseDecimal t (multiplier / 10.0) (value + (float (intVal c)) * multiplier)
+                | _ -> (tail, Float value)
+            let (restStr, decimalVal) = parseDecimal tail 0.1 (float iVal)
+            (restStr, decimalVal)
+        | c :: tail when isdigit c -> scFloat(tail, 10 * iVal + intVal c)
+        | _ -> (iStr, Int iVal)
+
+    let lexer input = 
+        let rec scan input =
+            match input with
+            | [] -> []
+            | '+'::tail -> Add :: scan tail
+            | '-'::tail -> Sub :: scan tail
+            | '*'::tail -> Mul :: scan tail
+            | '/'::tail -> Div :: scan tail
+            | '%'::tail -> Rem :: scan tail
+            | '('::tail -> Lpar:: scan tail
+            | ')'::tail -> Rpar:: scan tail
+            | '^'::tail -> Pow :: scan tail
+            | '.'::tail -> Dot :: scan tail
+            | ';'::tail -> End :: scan tail
+            | '='::tail -> Assign :: scan tail
+            | 'p'::'i'::tail -> Pi :: scan tail
+            | 's'::'i'::'n'::tail -> Sin :: scan tail
+            | 'c'::'o'::'s'::tail -> Cos :: scan tail 
+            | 'l'::'o'::'g'::tail -> Log :: scan tail 
+            | 'e'::'x'::'p'::tail -> Exp :: scan tail 
+            | 't'::'a'::'n'::tail -> Tan :: scan tail 
+            | 's'::'q'::'r'::'t'::tail -> Sqrt :: scan tail 
+            | 'i'::'n'::'t'::tail -> TypeDecl IntType :: scan tail
+            | 'f'::'l'::'o'::'a'::'t'::tail -> TypeDecl FloatType :: scan tail
+            | c :: tail when isblank c -> scan tail
+            | c :: tail when isdigit c -> 
+                let (iStr, iVal) = scFloat(tail, intVal c)
+                match iVal with
+                | Float v -> Float v :: scan iStr
+                | Int v -> Int v :: scan iStr    
+            | c :: tail when isalpha c -> 
+                let rec parseVar tail value =
+                    match tail with
+                    | c :: t when isalpha c -> parseVar t (value + string c)
+                    | _ -> (tail, Variable value)
+                let (tail, var) = parseVar tail (string c)
+                var :: scan tail
             | _ -> raise lexError
-        | _ -> scan input
 
-    and scComplex(input, realPart) =
-        match input with
-        | '+' :: tail ->
-            match tail with
-            | c :: t when isdigit c ->
-                let (iStr, imagPart) = scFloat(t, float (intVal c))
-                match iStr with
-                | 'i' :: rest  -> ComplexNum(Complex(realPart, imagPart)) :: scan rest
-                | _ -> raise lexError
-            | _ -> raise lexError
-        | _ -> scan input
+        scan (str2lst input)
 
-    scan (str2lst input)
+        // Grammar in BNF:
+    // <E>        ::= <T> <Eopt>
+    // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
+    // <T>        ::= <P> <Topt>
+    // <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
+    // <P>        ::= <Number> <Popt>
+    // <Popt>     ::= "^" <Number> <Popt> | <empty>
+    // <Number>   ::= <Numb> | <Float>
+    // <Numb>     ::= "Num" <value> | "(" <E> ")" | "-" <Numb> 
+    // <Float>    ::= "Num" <value> "." "Num" <value> | "-" <Float> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb>
 
-let getInputString() : string = 
-    Console.Write("Enter an expression: ")
-    Console.ReadLine()
-
-// Grammar in BNF:
-// <E>        ::= <T> <Eopt>
-// <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
-// <T>        ::= <P> <Topt>
-// <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
-// <P>        ::= <Number> <Popt>
-// <Popt>     ::= "^" <Number> <Popt> | <empty>
-// <Number>   ::= <Numb> | <Float>
-// <Numb>     ::= "Num" <value> | "(" <E> ")" | "-" <Numb> 
-// <Float>    ::= "Num" <value> "." "Num" <value> | "-" <Float> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb>
-
-let parser tList = 
-    let rec E tList = (T >> Eopt) tList         // >> is forward function composition operator: let inline (>>) f g x = g(f x)
-    and Eopt tList = 
-        match tList with
-        | Add :: tail -> (T >> Eopt) tail
-        | Sub :: tail -> (T >> Eopt) tail
-        | _ -> tList
-    and T tList = (P >> Topt) tList
-    and Topt tList =
-        match tList with
-        | Mul :: tail -> (P >> Topt) tail
-        | Div :: tail -> (P >> Topt) tail
-        | Rem :: tail -> (P >> Topt) tail
-        | _ -> tList
-    and P tList = (Numb >> Popt) tList
-    and Popt tList =
-        match tList with
-        | Pow :: tail -> (Numb >> Popt) tail
-        | _ -> tList
-    and Numb tList =
-        match tList with 
-        | Num value :: tail -> tail
-        | Lpar :: tail -> match E tail with 
-                          | Rpar :: tail -> tail
-                          | _ -> raise parseError
-        | Sub :: tail -> (Numb) tail
-        | Sin :: tail -> (Numb) tail
-        | Cos :: tail -> (Numb) tail
-        | Tan :: tail -> (Numb) tail
-        | Log :: tail -> (Numb) tail
-        | Exp :: tail -> (Numb) tail
-        | Sqrt :: tail -> (Numb) tail
-        | _ -> raise parseError
-    E tList
-
-let rec parseNeval tList =
-    let rec E tList = (T >> Eopt) tList
-    and Eopt (tList, value) = 
-        match tList with
-        | Add :: tail -> let (tLst, tval) = T tail
-                         Eopt (tLst, value + tval)
-        | Sub :: tail -> let (tLst, tval) = T tail 
-                         Eopt (tLst, value - tval)                            
-        | _ -> (tList, value)
-    and T tList = (P >> Topt) tList
-    and Topt (tList, value) =
-        match tList with
-        | Mul :: tail -> let (tLst, tval) = P tail
-                         Topt (tLst, value * tval)
-        | Div :: tail -> let (tLst, tval) = P tail
-                         match tval with
-                         | 0.0 -> raise divideByZero
-                         | _ -> Topt (tLst, value / tval)
-        | Rem :: tail -> let (tLst, tval) = P tail
-                         match tval with
-                         | 0.0 -> raise divideByZero
-                         | _ -> Topt (tLst, value % tval)
-        | _ -> (tList, value)
-    and P tList = (Numb >> Popt) tList
-    and Popt (tList, value) =
-        match tList with
-        | Pow :: tail -> let (tLst, tval) = Numb tail
-                         Popt (tLst, Math.Pow(value, tval))
-        | _ -> (tList, value)
-    and Numb tList =
-        match tList with 
-        | Num value :: tail -> (tail, value)
-        | ComplexNum cval :: tail -> (tail, Complex.Abs(cval))
-        | RationalNum (n, d) :: tail -> (tail, float n / float d)
-        | Pi :: tail -> (tail, Math.PI)
-        | Lpar :: tail -> let (tLst, tval) = E tail
-                          match tLst with 
-                          | Rpar :: tail -> (tail, tval)
-                          | _ -> raise parseError
-        | Sub :: tail -> let (tLst, tval) = Numb tail
-                         (tLst, -tval)
-        | Sin :: tail -> let (tLst, tval) = Numb tail
-                         (tLst, Math.Sin(tval))
-        | Cos :: tail -> let (tLst, tval) = Numb tail
-                         (tLst, Math.Cos(tval))
-        | Tan :: tail -> let (tLst, tval) = Numb tail
-                         (tLst, Math.Tan(tval))
-        | Log :: tail -> let (tLst, tval) = Numb tail
-                         (tLst, Math.Log(tval))
-        | Exp :: tail -> let (tLst, tval) = Numb tail
-                         (tLst, Math.Exp(tval))
-        | Sqrt :: tail -> let (tLst, tval) = Numb tail
-                          (tLst, Math.Sqrt(tval))
-        | _ -> raise parseError
-    E tList
-
-let rec printTList (lst:list<terminal>) : list<string> = 
-    match lst with
-    //head::tail -> Console.Write("{0} ",head.ToString())
-    //              printTList tail
-    // Edited By Krish
-    | head :: tail -> Console.Write("{0} ",head.ToString())
-                      printTList tail
-    // Edit Completed by Krish
-                  
-    | [] -> Console.Write("EOL\n")
-            []
-
-[<EntryPoint>]
-let main argv  =
-    Console.WriteLine("Advanced Interpreter with Optional Features: ")
-    let input = getInputString()
-    let oList = lexer input
-    let sList = printTList oList;
-    let pList = printTList (parser oList)
-    let Out = parseNeval oList
-    Console.WriteLine("Result = {0}", snd Out)
-    0
+    let rec parseNeval tList =
+        let rec S tList =
+            match tList with 
+            | TypeDecl typ :: Variable varName :: Assign :: tail ->
+                let (tLst, value) = E tail
+                match typ with
+                | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
+                | _ ->
+                    symbolTable.[varName] <- value
+                    variableTypes.[varName] <- typ
+                if tLst <> [] && tLst.Head = End then
+                    (tLst.Tail, value)
+                else raise parseError
+            | TypeDecl typ :: Variable varName :: tail ->
+                variableTypes.[varName] <- typ
+                symbolTable.[varName] <- 0.0
+                (tail, 0.0)
+            | Variable varName :: Assign :: tail -> 
+                if not (variableTypes.ContainsKey(varName)) then raise undeclaredVariable
+                let (tLst, value) = E tail
+                match variableTypes.[varName] with
+                | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
+                | _ -> 
+                    symbolTable.[varName] <- value
+                    if tLst <> [] && tLst.Head = End then
+                        (tLst.Tail, value)
+                    else raise parseError
+            | _ -> E tList
+        and E tList = (T >> Eopt) tList
+        and Eopt (tList, value) = 
+            match tList with
+            | Add :: tail -> let (tLst, tval) = T tail
+                             Eopt (tLst, value + tval)
+            | Sub :: tail -> let (tLst, tval) = T tail 
+                             Eopt (tLst, value - tval)                            
+            | _ -> (tList, value)
+        and T tList = (P >> Topt) tList
+        and Topt (tList, value) =
+            match tList with
+            | Mul :: tail -> let (tLst, tval) = P tail
+                             Topt (tLst, value * tval)
+            | Div :: tail -> let (tLst, tval) = P tail
+                             match tval with
+                             | 0.0 -> raise divideByZero 
+                             | _ ->
+                                    let result =
+                                        match (value % 1.0, tval % 1.0) with
+                                        | (0.0, 0.0) -> float (int value / int tval)
+                                        | _ -> value / tval
+                                    Topt (tLst, result)
+                             //match tval with
+                             //| 0.0 -> raise divideByZero
+                             //| _ -> Topt (tLst, value / tval)
+            | Rem :: tail -> let (tLst, tval) = P tail
+                             match tval with
+                             | 0.0 -> raise divideByZero
+                             | _ -> Topt (tLst, value % tval)
+            | _ -> (tList, value)
+        and P tList = (Numb >> Popt) tList
+        and Popt (tList, value) =
+            match tList with
+            | Pow :: tail -> let (tLst, tval) = Numb tail
+                             Popt (tLst, Math.Pow(value, tval))
+            | _ -> (tList, value)
+        and Numb tList =
+            match tList with 
+            | Int value :: tail -> (tail, float value)
+            | Float value :: tail -> (tail, value)
+            | Variable varName :: tail -> 
+                if symbolTable.ContainsKey(varName) then
+                    (tail, symbolTable.[varName])
+                else 
+                    raise undeclaredVariable
+            | Pi :: tail -> (tail, Math.PI)
+            | Lpar :: tail -> let (tLst, tval) = E tail
+                              match tLst with 
+                              | Rpar :: tail -> (tail, tval)
+                              | _ -> raise parseError
+            | Sub :: tail -> let (tLst, tval) = Numb tail
+                             (tLst, -tval)
+            | Sin :: tail -> let (tLst, tval) = Numb tail
+                             (tLst, Math.Sin(tval))
+            | Tan :: tail -> let (tLst, tval) = Numb tail
+                             (tLst, Math.Tan(tval))
+            | Cos :: tail -> let (tLst, tval) = Numb tail
+                             (tLst, Math.Cos(tval))
+            | Log :: tail -> let (tLst, tval) = Numb tail
+                             (tLst, Math.Log(tval))
+            | Exp :: tail -> let (tLst, tval) = Numb tail
+                             (tLst, Math.Exp(tval))
+            | Sqrt :: tail -> let (tLst, tval) = Numb tail
+                              (tLst, Math.Sqrt(tval))
+            | _ -> raise parseError
+        S tList
