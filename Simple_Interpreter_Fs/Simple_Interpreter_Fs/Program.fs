@@ -156,9 +156,7 @@ let rec parseNeval tList =
                                             float (intValue / intTval)
                                     | _ -> value / tval
                                 Topt (tLst, result)
-                         //match tval with
-                         //| 0.0 -> raise divideByZero
-                         //| _ -> Topt (tLst, value / tval)
+
         | Rem :: tail -> let (tLst, tval) = P tail
                          match tval with
                          | 0.0 -> raise divideByZero
