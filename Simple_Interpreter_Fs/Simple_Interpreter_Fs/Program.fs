@@ -199,7 +199,6 @@ let rec parseNeval tList =
     S tList
 
 let rec processInput(input: string) =
-
     try
         let tokens = lexer input
         let (_, result) = parseNeval tokens
