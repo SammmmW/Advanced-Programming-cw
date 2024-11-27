@@ -48,7 +48,9 @@ let lexer input =
         | '('::tail -> Lpar:: scan tail
         | ')'::tail -> Rpar:: scan tail
         | '^'::tail -> Pow :: scan tail
-        | '.'::tail -> Dot :: scan tail
+        | '.'::tail -> 
+            symbolTable.["lastInputType"] <- 1.0
+            Dot :: scan tail
         | ';'::tail -> End :: scan tail
         | '='::tail -> Assign :: scan tail
         | 'p'::'i'::tail -> Pi :: scan tail
@@ -64,8 +66,12 @@ let lexer input =
         | c :: tail when isdigit c -> 
             let (iStr, iVal) = scFloat(tail, intVal c)
             match iVal with
-            | Float v -> Float v :: scan iStr
-            | Int v -> Int v :: scan iStr    
+            | Float v -> 
+                symbolTable.["lastInputType"] <- 1.0
+                Float v :: scan iStr
+            | Int v -> 
+                symbolTable.["lastInputType"] <- 0.0
+                Int v :: scan iStr    
         | c :: tail when isalpha c -> 
             let rec parseVar tail value =
                 match tail with
@@ -95,9 +101,12 @@ let rec parseNeval tList =
             let (tLst, value) = E tail
             match typ with
             | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
-            | _ ->
+            | IntType ->
                 symbolTable.[varName] <- value
-                variableTypes.[varName] <- typ
+                variableTypes.[varName] <- IntType
+            | FloatType ->
+                symbolTable.[varName] <- value
+                variableTypes.[varName] <- FloatType
             if tLst <> [] && tLst.Head = End then
                 (tLst.Tail, value)
             else raise parseError
@@ -106,15 +115,18 @@ let rec parseNeval tList =
             symbolTable.[varName] <- 0.0
             (tail, 0.0)
         | Variable varName :: Assign :: tail -> 
-            if not (variableTypes.ContainsKey(varName)) then raise undeclaredVariable
             let (tLst, value) = E tail
-            match variableTypes.[varName] with
-            | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
-            | _ -> 
+            if variableTypes.ContainsKey(varName) then 
+                match variableTypes.[varName] with
+                | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
+                | _ -> symbolTable.[varName] <- value
+            else  
+                let inferredType = if value % 1.0 = 0.0 then IntType else FloatType
+                variableTypes.[varName] <- inferredType
                 symbolTable.[varName] <- value
-                if tLst <> [] && tLst.Head = End then
-                    (tLst.Tail, value)
-                else raise parseError
+            if tLst <> [] && tLst.Head = End then
+                (tLst.Tail, value)
+            else raise parseError
         | _ -> E tList
     and E tList = (T >> Eopt) tList
     and Eopt (tList, value) = 
@@ -135,7 +147,13 @@ let rec parseNeval tList =
                          | _ ->
                                 let result =
                                     match (value % 1.0, tval % 1.0) with
-                                    | (0.0, 0.0) -> float (int value / int tval)
+                                    | (0.0, 0.0) -> 
+                                        let intValue = int value
+                                        let intTval = int tval
+                                        if symbolTable.ContainsKey "lastInputType" && symbolTable.["lastInputType"] = 1.0 then
+                                            value / tval
+                                        else
+                                            float (intValue / intTval)
                                     | _ -> value / tval
                                 Topt (tLst, result)
                          //match tval with
@@ -184,9 +202,14 @@ let rec parseNeval tList =
     S tList
 
 let rec processInput(input: string) =
-    let tokens = lexer input
-    let (_, result) = parseNeval tokens
-    Console.WriteLine("Result: {0}", result)
+
+    try
+        let tokens = lexer input
+        let (_, result) = parseNeval tokens
+        Console.WriteLine("Result: {0}", result)
+    with
+    | :? System.Exception as ex ->
+        Console.WriteLine("Error: {0}", ex.Message)
 
 [<EntryPoint>]
 let main argv  =
@@ -198,8 +221,3 @@ let main argv  =
         loop()
     loop()
     0
-
-
-
-
-
