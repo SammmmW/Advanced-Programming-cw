@@ -14,11 +14,41 @@ namespace WpfApp1
 
         private void Btn_Click(object sender, RoutedEventArgs e)
         {
-            //Result.Text = Input.Text; //in the final program, what this needs to actually do is pass 'Input.Text' into the f# program, then display that result
             var fsString = lexparser.str2lst(Input.Text);
             var oList = lexparser.lexer(fsString);
-            double b = lexparser.parseNeval(oList).Item2;
-            Result.Text = b.ToString();
+            try
+            {
+                double b = lexparser.parseNeval(oList).Item2;
+                Result.Text = b.ToString();
+            }
+            catch (Exception v)
+            {
+                if (v == lexparser.divideByZero)
+                {
+                    Result.Text = lexparser.divideByZero.ToString();
+                }
+                else if (v == lexparser.lexError)
+                {
+                    Result.Text = lexparser.lexError.ToString();
+                }
+                else if (v == lexparser.parseError)
+                {
+                    Result.Text = lexparser.parseError.ToString();
+                }
+                else if (v == lexparser.undeclaredVariable)
+                {
+                    Result.Text = lexparser.undeclaredVariable.ToString();
+                }
+                else if (v == lexparser.typeMismatch)
+                {
+                    Result.Text = lexparser.typeMismatch.ToString();
+                }
+                else
+                {
+                    Result.Text = "Unkown Error";
+                }
+            }
+            
         }
         private void Help_Click(object sender, RoutedEventArgs e)
         {
