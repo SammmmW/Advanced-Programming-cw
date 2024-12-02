@@ -51,7 +51,9 @@ module lexparser =
             | '('::tail -> Lpar:: scan tail
             | ')'::tail -> Rpar:: scan tail
             | '^'::tail -> Pow :: scan tail
-            | '.'::tail -> Dot :: scan tail
+            | '.'::tail -> 
+                symbolTable.["lastInputType"] <- 1.0
+                Dot :: scan tail
             | ';'::tail -> End :: scan tail
             | '='::tail -> Assign :: scan tail
             | 'p'::'i'::tail -> Pi :: scan tail
@@ -67,8 +69,12 @@ module lexparser =
             | c :: tail when isdigit c -> 
                 let (iStr, iVal) = scFloat(tail, intVal c)
                 match iVal with
-                | Float v -> Float v :: scan iStr
-                | Int v -> Int v :: scan iStr    
+                | Float v -> 
+                    symbolTable.["lastInputType"] <- 1.0
+                    Float v :: scan iStr
+                | Int v -> 
+                    symbolTable.["lastInputType"] <- 0.0
+                    Int v :: scan iStr    
             | c :: tail when isalpha c -> 
                 let rec parseVar tail value =
                     match tail with
@@ -81,15 +87,15 @@ module lexparser =
         scan (str2lst input)
 
         // Grammar in BNF:
-    // <E>        ::= <T> <Eopt>
-    // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
-    // <T>        ::= <P> <Topt>
-    // <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
-    // <P>        ::= <Number> <Popt>
-    // <Popt>     ::= "^" <Number> <Popt> | <empty>
-    // <Number>   ::= <Numb> | <Float>
-    // <Numb>     ::= "Num" <value> | "(" <E> ")" | "-" <Numb> 
-    // <Float>    ::= "Num" <value> "." "Num" <value> | "-" <Float> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb>
+        // <S>        ::= <TypeDecl> "String" "=" <E> ";" | "String" "=" <E> ";" | <E>
+        // <TypeDecl> ::= "Int" | "Float"
+        // <E>        ::= <T> <Eopt>
+        // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
+        // <T>        ::= <P> <Topt>
+        // <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
+        // <P>        ::= <Number> <Popt>
+        // <Popt>     ::= "^" <Number> <Popt> | <empty>
+        // <Numb>     ::= "Int" | "Float" | "Variable" | "(" <E> ")" | "-" <Numb> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb>
 
     let rec parseNeval tList =
         let rec S tList =
@@ -98,9 +104,12 @@ module lexparser =
                 let (tLst, value) = E tail
                 match typ with
                 | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
-                | _ ->
+                | IntType ->
                     symbolTable.[varName] <- value
-                    variableTypes.[varName] <- typ
+                    variableTypes.[varName] <- IntType
+                | FloatType ->
+                    symbolTable.[varName] <- value
+                    variableTypes.[varName] <- FloatType
                 if tLst <> [] && tLst.Head = End then
                     (tLst.Tail, value)
                 else raise parseError
@@ -109,15 +118,18 @@ module lexparser =
                 symbolTable.[varName] <- 0.0
                 (tail, 0.0)
             | Variable varName :: Assign :: tail -> 
-                if not (variableTypes.ContainsKey(varName)) then raise undeclaredVariable
                 let (tLst, value) = E tail
-                match variableTypes.[varName] with
-                | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
-                | _ -> 
+                if variableTypes.ContainsKey(varName) then 
+                    match variableTypes.[varName] with
+                    | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
+                    | _ -> symbolTable.[varName] <- value
+                else  
+                    let inferredType = if value % 1.0 = 0.0 then IntType else FloatType
+                    variableTypes.[varName] <- inferredType
                     symbolTable.[varName] <- value
-                    if tLst <> [] && tLst.Head = End then
-                        (tLst.Tail, value)
-                    else raise parseError
+                if tLst <> [] && tLst.Head = End then
+                    (tLst.Tail, value)
+                else raise parseError
             | _ -> E tList
         and E tList = (T >> Eopt) tList
         and Eopt (tList, value) = 
@@ -138,12 +150,15 @@ module lexparser =
                              | _ ->
                                     let result =
                                         match (value % 1.0, tval % 1.0) with
-                                        | (0.0, 0.0) -> float (int value / int tval)
+                                        | (0.0, 0.0) -> 
+                                            let intValue = int value
+                                            let intTval = int tval
+                                            if symbolTable.ContainsKey "lastInputType" && symbolTable.["lastInputType"] = 1.0 then
+                                                value / tval
+                                            else
+                                                float (intValue / intTval)
                                         | _ -> value / tval
                                     Topt (tLst, result)
-                             //match tval with
-                             //| 0.0 -> raise divideByZero
-                             //| _ -> Topt (tLst, value / tval)
             | Rem :: tail -> let (tLst, tval) = P tail
                              match tval with
                              | 0.0 -> raise divideByZero
