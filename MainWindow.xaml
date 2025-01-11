@@ -1,18 +1,31 @@
-﻿<Window x:Class="WpfApp1.MainWindow"
+<Window
+        x:Class="WpfApp1.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WpfApp1"
+        xmlns:oxy="http://oxyplot.org/wpf" 
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
+        Title="MainWindow" Height="868" Width="800">
+    <Window.DataContext>
+        <local:MainWindow/>
+    </Window.DataContext>
     <Grid>
-        <TextBlock Name="Prompt" HorizontalAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" Text="Please input an expression:" FontSize="50" VerticalAlignment="Top"/>
-        <TextBox Name="Input" MaxLength="32" Margin="10,77,10,280" />
-        <TextBlock Name="Info" HorizontalAlignment="Left" Margin="0,163,0,0" TextWrapping="Wrap" FontSize="20" VerticalAlignment="Top" Width="303" Height="261"/>
-        <Button Name="Btn" Content="Evaluate Expression" FontSize="20" Width="184" Height="100" HorizontalAlignment="Center" Margin="0,159,0,0" VerticalAlignment="Top" Click="Btn_Click"/>
-        <Button Name="Help" Content="Info" FontSize="20" Width="67" Height="62" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Click="Help_Click"/>
-        <TextBlock Name="Result" HorizontalAlignment="Center" Margin="0,300,0,0" TextWrapping="Wrap" FontSize="30" VerticalAlignment="Top"/>
-        <TextBlock Name="Error" HorizontalAlignment="Center" Margin="0,200,0,0" TextWrapping="Wrap" FontSize="30" VerticalAlignment="Top"/>
+        <TextBlock x:Name="Prompt" HorizontalAlignment="Center" Margin="0,10,0,0" TextWrapping="Wrap" Text="Please input an expression:" FontSize="50" VerticalAlignment="Top"/>
+        <TextBox x:Name="Input" MaxLength="32" Margin="10,77,10,698" />
+        <TextBlock x:Name="Info" HorizontalAlignment="Left" Margin="0,163,0,0" TextWrapping="Wrap" FontSize="20" VerticalAlignment="Top" Width="303" Height="261"/>
+        <Button x:Name="Btn" Content="Evaluate Expression" FontSize="20" Width="184" Height="100" HorizontalAlignment="Center" Margin="0,159,0,0" VerticalAlignment="Top" Click="Btn_Click"/>
+        <Button x:Name="Help" Content="Info" FontSize="20" Width="67" Height="62" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top" Click="Help_Click"/>
+        <TextBlock x:Name="Result" HorizontalAlignment="Center" Margin="0,300,0,0" TextWrapping="Wrap" FontSize="30" VerticalAlignment="Top"/>
+        <TextBlock x:Name="Error" HorizontalAlignment="Center" Margin="0,200,0,0" TextWrapping="Wrap" FontSize="30" VerticalAlignment="Top"/>
+        <oxy:PlotView Model="{Binding View}" Margin="0,563,0,0"/>
+        <TextBlock HorizontalAlignment="Left" Margin="632,429,0,0" TextWrapping="Wrap" Text="Input power:" FontSize="20" VerticalAlignment="Top" Height="43" Width="146"/>
+        <TextBox x:Name="pInput" MaxLength="32" Margin="645,472,35,294" />
+        <TextBlock HorizontalAlignment="Left" Margin="316,429,0,0" TextWrapping="Wrap" Text="Input gradient:" FontSize="20" VerticalAlignment="Top" Height="43" Width="144"/>
+        <TextBox x:Name="gInput" MaxLength="32" Margin="328,472,352,294" />
+        <TextBlock HorizontalAlignment="Left" Margin="10,426,0,0" TextWrapping="Wrap" Text="Input y-intercept" FontSize="20" VerticalAlignment="Top" Height="43" Width="159"/>
+        <TextBox x:Name="cInput" MaxLength="32" Margin="10,474,670,294" />
+        <Button x:Name="grapher" Content="Generate graph" HorizontalAlignment="Center" FontSize="15" Margin="0,345,0,0" VerticalAlignment="Top" Height="61" Width="120" Click="Graph_Click"/>
     </Grid>
 </Window>
