@@ -3,18 +3,29 @@ namespace ClassLibrary1
 module lexparser =
     open System
     open System.Numerics
+    open System.Collections.Generic
+
+    type VariableType =
+        | IntType
+        | FloatType
 
     type terminal = 
-        Add | Sub | Mul | Div | Rem | Lpar | Rpar | Pow | Dot | Int of int | Float of float
-        | Sin | Cos | Log | Exp | Tan | Sqrt | Pi
+        Add | Sub | Mul | Div | Rem | Lpar | Rpar | Pow | Dot | End | Int of int | Float of float
+        | Sin | Cos | Log | Exp | Tan | Sqrt | Pi | Assign | Variable of string | TypeDecl of VariableType
 
     let str2lst s = [for c in s -> c]
     let isblank c = System.Char.IsWhiteSpace c
     let isdigit c = System.Char.IsDigit c
+    let isalpha c = System.Char.IsLetter c
     let lexError = System.Exception("Lexer error")
     let intVal (c:char) = (int)((int)c - (int)'0')
     let parseError = System.Exception("Parser error")
     let divideByZero = System.Exception("Attempted to divide by zero")
+    let undeclaredVariable = System.Exception("Variable used before assignment")
+    let typeMismatch = System.Exception("Type mismatch during assignment or usage")
+
+    let symbolTable = Dictionary<string, float>()
+    let variableTypes = Dictionary<string, VariableType>()
 
     let rec scFloat(iStr, iVal) = 
         match iStr with
@@ -22,9 +33,9 @@ module lexparser =
             let rec parseDecimal tail multiplier value =
                 match tail with
                 | c :: t when isdigit c -> parseDecimal t (multiplier / 10.0) (value + (float (intVal c)) * multiplier)
-                | _ -> (tail, value)
+                | _ -> (tail, Float value)
             let (restStr, decimalVal) = parseDecimal tail 0.1 (float iVal)
-            (restStr, Float(decimalVal))
+            (restStr, decimalVal)
         | c :: tail when isdigit c -> scFloat(tail, 10 * iVal + intVal c)
         | _ -> (iStr, Int iVal)
 
@@ -40,7 +51,11 @@ module lexparser =
             | '('::tail -> Lpar:: scan tail
             | ')'::tail -> Rpar:: scan tail
             | '^'::tail -> Pow :: scan tail
-            | '.'::tail -> Dot :: scan tail
+            | '.'::tail -> 
+                symbolTable.["lastInputType"] <- 1.0
+                Dot :: scan tail
+            | ';'::tail -> End :: scan tail
+            | '='::tail -> Assign :: scan tail
             | 'p'::'i'::tail -> Pi :: scan tail
             | 's'::'i'::'n'::tail -> Sin :: scan tail
             | 'c'::'o'::'s'::tail -> Cos :: scan tail 
@@ -48,33 +63,76 @@ module lexparser =
             | 'e'::'x'::'p'::tail -> Exp :: scan tail 
             | 't'::'a'::'n'::tail -> Tan :: scan tail 
             | 's'::'q'::'r'::'t'::tail -> Sqrt :: scan tail 
+            | 'i'::'n'::'t'::tail -> TypeDecl IntType :: scan tail
+            | 'f'::'l'::'o'::'a'::'t'::tail -> TypeDecl FloatType :: scan tail
             | c :: tail when isblank c -> scan tail
             | c :: tail when isdigit c -> 
                 let (iStr, iVal) = scFloat(tail, intVal c)
                 match iVal with
-                | Float v when v % 1.0 = 0.0 -> Int (int v) :: scan iStr
-                | _ -> iVal :: scan iStr                    
+                | Float v -> 
+                    symbolTable.["lastInputType"] <- 1.0
+                    Float v :: scan iStr
+                | Int v -> 
+                    symbolTable.["lastInputType"] <- 0.0
+                    Int v :: scan iStr    
+            | c :: tail when isalpha c -> 
+                let rec parseVar tail value =
+                    match tail with
+                    | c :: t when isalpha c -> parseVar t (value + string c)
+                    | _ -> (tail, Variable value)
+                let (tail, var) = parseVar tail (string c)
+                var :: scan tail
             | _ -> raise lexError
 
         scan (str2lst input)
 
-    let getInputString() : string = 
-        Console.Write("Enter an expression: ")
-        Console.ReadLine()
-
         // Grammar in BNF:
-    // <E>        ::= <T> <Eopt>
-    // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
-    // <T>        ::= <P> <Topt>
-    // <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
-    // <P>        ::= <Number> <Popt>
-    // <Popt>     ::= "^" <Number> <Popt> | <empty>
-    // <Number>   ::= <Numb> | <Float>
-    // <Numb>     ::= "Num" <value> | "(" <E> ")" | "-" <Numb> 
-    // <Float>    ::= "Num" <value> "." "Num" <value> | "-" <Float> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb>
+        // <S>        ::= <TypeDecl> "String" "=" <E> ";" | "String" "=" <E> ";" | <E>
+        // <TypeDecl> ::= "Int" | "Float"
+        // <E>        ::= <T> <Eopt>
+        // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
+        // <T>        ::= <P> <Topt>
+        // <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
+        // <P>        ::= <Number> <Popt>
+        // <Popt>     ::= "^" <Number> <Popt> | <empty>
+        // <Numb>     ::= "Int" | "Float" | "Variable" | "(" <E> ")" | "-" <Numb> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb>
 
+    
     let rec parseNeval tList =
-        let rec E tList = (T >> Eopt) tList
+        let rec S tList =
+            match tList with 
+            | TypeDecl typ :: Variable varName :: Assign :: tail ->
+                let (tLst, value) = E tail
+                match typ with
+                | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
+                | IntType ->
+                    symbolTable.[varName] <- value
+                    variableTypes.[varName] <- IntType
+                | FloatType ->
+                    symbolTable.[varName] <- value
+                    variableTypes.[varName] <- FloatType
+                if tLst <> [] && tLst.Head = End then
+                    (tLst.Tail, value)
+                else raise parseError
+            | TypeDecl typ :: Variable varName :: tail ->
+                variableTypes.[varName] <- typ
+                symbolTable.[varName] <- 0.0
+                (tail, 0.0)
+            | Variable varName :: Assign :: tail -> 
+                let (tLst, value) = E tail
+                if variableTypes.ContainsKey(varName) then 
+                    match variableTypes.[varName] with
+                    | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
+                    | _ -> symbolTable.[varName] <- value
+                else  
+                    let inferredType = if value % 1.0 = 0.0 then IntType else FloatType
+                    variableTypes.[varName] <- inferredType
+                    symbolTable.[varName] <- value
+                if tLst <> [] && tLst.Head = End then
+                    (tLst.Tail, value)
+                else raise parseError
+            | _ -> E tList
+        and E tList = (T >> Eopt) tList
         and Eopt (tList, value) = 
             match tList with
             | Add :: tail -> let (tLst, tval) = T tail
@@ -92,8 +150,14 @@ module lexparser =
                              | 0.0 -> raise divideByZero 
                              | _ ->
                                     let result =
-                                        match (value, tval) with
-                                        | (v1, v2) when v1 % 1.0 = 0.0 && v2 % 1.0 = 0.0 -> int v1 / int v2 |> float
+                                        match (value % 1.0, tval % 1.0) with
+                                        | (0.0, 0.0) -> 
+                                            let intValue = int value
+                                            let intTval = int tval
+                                            if symbolTable.ContainsKey "lastInputType" && symbolTable.["lastInputType"] = 1.0 then
+                                                value / tval
+                                            else
+                                                float (intValue / intTval)
                                         | _ -> value / tval
                                     Topt (tLst, result)
             | Rem :: tail -> let (tLst, tval) = P tail
@@ -109,8 +173,13 @@ module lexparser =
             | _ -> (tList, value)
         and Numb tList =
             match tList with 
-            | Int value :: tail -> (tail, value)
-            | Float value :: tail -> (tail, float value)
+            | Int value :: tail -> (tail, float value)
+            | Float value :: tail -> (tail, value)
+            | Variable varName :: tail -> 
+                if symbolTable.ContainsKey(varName) then
+                    (tail, symbolTable.[varName])
+                else 
+                    raise undeclaredVariable
             | Pi :: tail -> (tail, Math.PI)
             | Lpar :: tail -> let (tLst, tval) = E tail
                               match tLst with 
@@ -131,4 +200,4 @@ module lexparser =
             | Sqrt :: tail -> let (tLst, tval) = Numb tail
                               (tLst, Math.Sqrt(tval))
             | _ -> raise parseError
-        E tList
+        S tList
