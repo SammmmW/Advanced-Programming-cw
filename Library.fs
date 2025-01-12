@@ -93,8 +93,8 @@ module lexparser =
         // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
         // <T>        ::= <P> <Topt>
         // <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
-        // <P>        ::= <Number> <Popt>
-        // <Popt>     ::= "^" <Number> <Popt> | <empty>
+        // <P>        ::= <Numb> <Popt>
+        // <Popt>     ::= "^" <Numb> <Popt> | <empty>
         // <Numb>     ::= "Int" | "Float" | "Variable" | "(" <E> ")" | "-" <Numb> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb>
 
     
