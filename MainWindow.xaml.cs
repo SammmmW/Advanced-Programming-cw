@@ -59,7 +59,7 @@ namespace WpfApp1
             helpActive = !helpActive;
             if (helpActive)
             {
-                Info.Text = "Accepted tokens are as follows:\nAll digits (0-9), +, -, * (multiply), / (divide), % (remainder), ^ (to the power of), (), . (for decimal places), sqrt (Square Root), exp (Exponent) Sin, Cos, Tan, Pi, Log, = (for variable assignment), int, float, and ; (must append on any variable assignment)";
+                Info.Text = "Accepted tokens are as follows:\nAll digits (0-9), +, -, * (multiply), / (divide), % (remainder), ^ (to the power of), (), . (for decimal places), sqrt (Square Root), Sin, Cos, Tan, Pi, Log, = (for variable assignment), int, float, and ; (must append on any variable assignment)";
                 Help.Content = "Close";
             }
             else
@@ -72,7 +72,7 @@ namespace WpfApp1
         {
             try
             {
-                View = new PlotModel { Title = "Test" };
+                View = new PlotModel { Title = "Output" };
                 var cString = lexparser.str2lst(cInput.Text);
                 var cList = lexparser.lexer(cString);
                 double yIntercept = lexparser.parseNeval(cList).Item2;
