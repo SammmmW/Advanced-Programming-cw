@@ -83,16 +83,16 @@ let lexer input =
 
     scan (str2lst input)
 
-    // Grammar in BNF:
-// <E>        ::= <T> <Eopt>
-// <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
-// <T>        ::= <P> <Topt>
-// <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
-// <P>        ::= <Number> <Popt>
-// <Popt>     ::= "^" <Number> <Popt> | <empty>
-// <Number>   ::= <Numb> | <Float>
-// <Numb>     ::= "Num" <value> | "(" <E> ")" | "-" <Numb> 
-// <Float>    ::= "Num" <value> "." "Num" <value> | "-" <Float> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb>
+     // Grammar in BNF:
+     // <S>        ::= <TypeDecl> "String" "=" <E> ";" | "String" "=" <E> ";" | <E>
+     // <TypeDecl> ::= "Int" | "Float"
+     // <E>        ::= <T> <Eopt>
+     // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
+     // <T>        ::= <P> <Topt>
+     // <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
+     // <P>        ::= <Numb> <Popt>
+     // <Popt>     ::= "^" <Numb> <Popt> | <empty>
+     // <Numb>     ::= "Int" | "Float" | "Variable" | "(" <E> ")" | "-" <Numb> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb> | "log" <Numb>
 
 let rec parseNeval tList =
     let rec S tList =
