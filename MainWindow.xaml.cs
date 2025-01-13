@@ -16,14 +16,14 @@ namespace WpfApp1
             
         }
 
-        private void Btn_Click(object sender, RoutedEventArgs e)
+        private void Btn_Click(object sender, RoutedEventArgs e) //Btn_Click function as defined in WPF is attached to the 'evaluate expression' button
         {
             try
             {
-                var fsString = lexparser.str2lst(Input.Text);
+                var fsString = lexparser.str2lst(Input.Text); //must create a C# variable that is an F# char list to be able to lex. 'Input' is the input window
                 var oList = lexparser.lexer(fsString);
                 double b = lexparser.parseNeval(oList).Item2;
-                Result.Text = b.ToString();
+                Result.Text = b.ToString(); //result must be converted back to a string to be able to be rendered
             }
             catch (Exception v)
             {
@@ -72,7 +72,7 @@ namespace WpfApp1
         {
             try
             {
-                View = new PlotModel { Title = "Output" };
+                View = new PlotModel { Title = "Output" }; //create empty graph
                 var cString = lexparser.str2lst(cInput.Text);
                 var cList = lexparser.lexer(cString);
                 double yIntercept = lexparser.parseNeval(cList).Item2;
@@ -81,10 +81,10 @@ namespace WpfApp1
                 double gradient = lexparser.parseNeval(gList).Item2;
                 var pString = lexparser.str2lst(pInput.Text);
                 var pList = lexparser.lexer(pString);
-                double power = lexparser.parseNeval(pList).Item2;
-                Func<double, double> graphFunction = (x) => Math.Pow(x, power)*gradient + yIntercept;
+                double power = lexparser.parseNeval(pList).Item2; //parse the arguments but don't display them anywhere
+                Func<double, double> graphFunction = (x) => Math.Pow(x, power)*gradient + yIntercept; //y = mx^p + c
                 View.Series.Add(new FunctionSeries(graphFunction, 0, 10, 0.1));
-                this.DataContext = this;
+                this.DataContext = this; //must be added for the graph to generate
             }
             catch (Exception v)
             {
