@@ -21,6 +21,7 @@ let divideByZero = System.Exception("Attempted to divide by zero")
 let undeclaredVariable = System.Exception("Variable used before assignment")
 let typeMismatch = System.Exception("Type mismatch during assignment or usage")
 
+// Task INT2 : Variable Assignment and Uasge
 let symbolTable = Dictionary<string, float>()
 let variableTypes = Dictionary<string, VariableType>()
 
@@ -35,6 +36,7 @@ let rec scFloat(iStr, iVal) =
         (restStr, decimalVal)
     | c :: tail when isdigit c -> scFloat(tail, 10 * iVal + intVal c)
     | _ -> (iStr, Int iVal)
+
 
 let lexer input = 
     let rec scan input =
@@ -83,17 +85,18 @@ let lexer input =
 
     scan (str2lst input)
 
-     // Grammar in BNF:
-     // <S>        ::= <TypeDecl> "String" "=" <E> ";" | "String" "=" <E> ";" | <E>
-     // <TypeDecl> ::= "Int" | "Float"
-     // <E>        ::= <T> <Eopt>
-     // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
-     // <T>        ::= <P> <Topt>
-     // <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
-     // <P>        ::= <Numb> <Popt>
-     // <Popt>     ::= "^" <Numb> <Popt> | <empty>
-     // <Numb>     ::= "Int" | "Float" | "Variable" | "(" <E> ")" | "-" <Numb> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb> | "log" <Numb>
+    // Grammar in BNF:
+        // <S>        ::= <TypeDecl> "String" "=" <E> ";" | "String" "=" <E> ";" | <E>
+        // <TypeDecl> ::= "Int" | "Float"
+        // <E>        ::= <T> <Eopt>
+        // <Eopt>     ::= "+" <T> <Eopt> | "-" <T> <Eopt> | <empty>
+        // <T>        ::= <P> <Topt>
+        // <Topt>     ::= "*" <P> <Topt> | "/" <P> <Topt> | "%" <P> <Topt> | <empty>
+        // <P>        ::= <Numb> <Popt>
+        // <Popt>     ::= "^" <Numb> <Popt> | <empty>
+        // <Numb>     ::= "Int" | "Float" | "Variable" | "(" <E> ")" | "-" <Numb> | "Pi" | "Sin" <Numb> | "Tan" <Numb> | "Cos" <Numb> | "Exp" <Numb> | "Sqrt" <Numb> | "log" <Numb> | "log" <Numb>
 
+// TASK INT2 : Evaluation of Type Declation 
 let rec parseNeval tList =
     let rec S tList =
         match tList with 
@@ -102,8 +105,8 @@ let rec parseNeval tList =
             match typ with
             | IntType when value % 1.0 <> 0.0 -> raise typeMismatch
             | IntType ->
-                symbolTable.[varName] <- value
-                variableTypes.[varName] <- IntType
+                symbolTable.[varName] <- value // Store variable in the symbol table
+                variableTypes.[varName] <- IntType  
             | FloatType ->
                 symbolTable.[varName] <- value
                 variableTypes.[varName] <- FloatType
@@ -128,6 +131,7 @@ let rec parseNeval tList =
                 (tLst.Tail, value)
             else raise parseError
         | _ -> E tList
+    // Task INT1 : Arithmetic Expression Evaluation : Operators and additional requirements 
     and E tList = (T >> Eopt) tList
     and Eopt (tList, value) = 
         match tList with
@@ -143,7 +147,7 @@ let rec parseNeval tList =
                          Topt (tLst, value * tval)
         | Div :: tail -> let (tLst, tval) = P tail
                          match tval with
-                         | 0.0 -> raise divideByZero 
+                         | 0.0 -> raise divideByZero // Error : Division by zero
                          | _ ->
                                 let result =
                                     match (value % 1.0, tval % 1.0) with
@@ -217,3 +221,7 @@ let main argv  =
         loop()
     loop()
     0
+
+
+
+
